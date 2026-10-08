@@ -1,0 +1,99 @@
+# 语枢 · 指标口径库 v0.1
+# 核心设计原则（对齐"澄清引擎"）：
+#   - 多口径指标 default_variant 一律为 null → 平台"不假装知道"，必须向用户澄清；
+#   - 单口径指标给出 default_variant，但口径全部显式披露。
+# 别名约定：orders→o，shipments→s，products→p，customers→c，carriers→k
+
+metrics:
+  GMV:
+    zh: 成交总额
+    synonyms: [GMV, 成交额, 销售额, 销售总额, 大盘]
+    time_basis: o.order_time          # 时间过滤作用在哪个字段
+    table: orders
+    requires: [orders, customers]     # 区域筛选时需要 customers
+    default_variant: null             # 多口径 → 必须澄清
+    variants:
+      - id: gross
+        zh: 毛额（吊牌金额，未扣折扣、含取消订单）
+        keywords: [毛额, 吊牌, 未扣折扣, 含取消]
+        expr: "SUM(o.order_amount)"
+      - id: paid
+        zh: 实付（已扣折扣，含取消订单）
+        keywords: [实付, 已扣折扣]
+        expr: "SUM(o.pay_amount)"
+      - id: net
+        zh: 净实付（已扣折扣，剔除已取消订单）
+        keywords: [净实付, 净额, 剔除已取消, 不含取消, 去掉取消, 只算有效订单]
+        expr: "SUM(o.pay_amount) FILTER (WHERE o.status <> '已取消')"
+
+  OrderCount:
+    zh: 订单量
+    synonyms: [订单量, 订单数, 单量, 成交笔数, 订单笔数]
+    time_basis: o.order_time
+    table: orders
+    requires: [orders]
+    default_variant: all
+    default_rationale: 「订单量」在业务口语中默认指全部订单（含取消），
+      剔除口径属异常分析，应由用户显式提出（口径仍随答案披露）
+    variants:
+      - id: all
+        zh: 全部订单（含取消与进行中）
+        keywords: [全部订单, 含取消]
+        expr: "COUNT(*)"
+      - id: valid
+        zh: 有效订单（剔除已取消）
+        keywords: [有效订单, 剔除已取消, 不含取消]
+        expr: "COUNT(*) FILTER (WHERE o.status <> '已取消')"
+
+  SignedRate:
+    zh: 妥投率
+    synonyms: [妥投率, 签收率]
+    time_basis: s.ship_time
+    table: shipments
+    requires: [shipments, orders, customers]
+    default_variant: all
+    variants:
+      - id: all
+        zh: 已签收运单 / 全部运单（运输中计入分母）
+        expr: "COUNT(*) FILTER (WHERE s.delivery_time IS NOT NULL) * 1.0 / COUNT(*)"
+
+  DelayRate:
+    zh: 履约超时率
+    synonyms: [履约超时率, 超时率]
+    time_basis: s.ship_time
+    table: shipments
+    requires: [shipments, orders, customers]
+    default_variant: null             # 两口径 → 必须澄清
+    variants:
+      - id: delivered_only
+        zh: 超时运单 / 已签收运单（衡量已妥投中的超时比例）
+        keywords: [按已签收, 已签收口径, 妥投口径, 只算已签收, 已妥投口径]
+        expr: "COUNT(*) FILTER (WHERE s.delivery_time > s.promised_time) * 1.0 / COUNT(*) FILTER (WHERE s.delivery_time IS NOT NULL)"
+      - id: all_shipments
+        zh: 超时运单 / 全部运单（含运输中）
+        keywords: [按全部运单, 含运输中, 全部运单口径]
+        expr: "COUNT(*) FILTER (WHERE s.delivery_time > s.promised_time) * 1.0 / COUNT(*)"
+
+  DelayCount:
+    zh: 超时运单数
+    synonyms: [超时运单数, 超时运单量]
+    time_basis: s.ship_time
+    table: shipments
+    requires: [shipments, orders, customers]
+    default_variant: std
+    variants:
+      - id: std
+        zh: 已签收且超时的运单数量
+        expr: "COUNT(*) FILTER (WHERE s.delivery_time > s.promised_time)"
+
+  AvgFulfillmentHours:
+    zh: 平均履约时长（小时）
+    synonyms: [平均履约时长, 平均履约时效]
+    time_basis: s.ship_time
+    table: shipments
+    requires: [shipments, orders, customers]
+    default_variant: ship_to_delivery
+    variants:
+      - id: ship_to_delivery
+        zh: 发货→签收（小时，仅统计已妥投）
+        expr: "AVG(date_diff('hour', s.ship_time, s.delivery_time))"

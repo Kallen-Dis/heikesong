@@ -1,0 +1,52 @@
+# 活体本体 · 现场教学产物（由 scripts/teach.py 生成；可手工编辑，热加载无需重启）
+metrics:
+  FastDeliveryRate:
+    zh: 快时效占比
+    synonyms: []
+    time_basis: s.ship_time
+    table: shipments
+    requires: [shipments, orders]
+    default_variant: std
+    default_rationale: 单口径指标，无歧义
+    variants:
+    - id: std
+      zh: 承诺时效不超过24小时的运单占全部运单的比例
+      expr: COUNT(*) FILTER (WHERE date_diff('hour', s.ship_time, s.promised_time)
+        <= 24) * 1.0 / COUNT(*)
+  CancelledOrderRate:
+    zh: 已取消订单占比
+    synonyms:
+    - 已取消订单占比
+    time_basis: o.order_time
+    table: orders
+    requires: [orders]
+    default_variant: std
+    default_rationale: 单口径指标，无歧义
+    variants:
+    - id: std
+      zh: 已取消状态订单数占全部订单数的比例
+      expr: COUNT(*) FILTER (WHERE o.status = '已取消') * 1.0 / COUNT(*)
+  HighRatingCarrierShipmentRatio:
+    zh: 高评分承运商占比
+    synonyms: []
+    time_basis: s.ship_time
+    table: shipments
+    requires: [shipments, orders, carriers]
+    default_variant: std
+    default_rationale: 单口径指标，无歧义
+    variants:
+    - id: std
+      zh: 服务评分不低于 4.5 的承运商承运的运单占全部运单的比例
+      expr: COUNT(*) FILTER (WHERE k.rating >= 4.5) * 1.0 / COUNT(*)
+  EastChinaOrderRatio:
+    zh: 华东区订单占比
+    synonyms: []
+    time_basis: o.order_time
+    table: orders
+    requires: [orders, customers]
+    default_variant: std
+    default_rationale: 单口径指标，无歧义
+    variants:
+    - id: std
+      zh: 下单客户位于华东区域的订单占全部订单的比例
+      expr: COUNT(*) FILTER (WHERE c.region = '华东') * 1.0 / COUNT(*)

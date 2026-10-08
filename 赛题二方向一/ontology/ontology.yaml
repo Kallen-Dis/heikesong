@@ -1,0 +1,98 @@
+# 语枢 · 领域本体 v0.1
+# 领域：电商订单 × 物流履约
+# 说明：概念/属性/关系/公理四类语义构件，与 warehouse.duckdb 物理实现对应。
+#       别名约定：orders→o，shipments→s，products→p，customers→c，carriers→k
+version: "0.1.0"
+name: 电商订单×物流履约领域本体
+
+concepts:
+  Order:
+    zh: 订单
+    table: orders
+    key: order_id
+    synonyms: [订单, 单子, 单]
+    properties:
+      order_time: {zh: 下单时间, type: timestamp}
+      order_amount: {zh: 吊牌金额（含税、未扣折扣）, type: decimal}
+      pay_amount: {zh: 实付金额（已扣折扣）, type: decimal}
+      quantity: {zh: 商品数量, type: int}
+      status: {zh: 订单状态, type: enum, values: [已完成, 已取消, 进行中]}
+      channel: {zh: 下单渠道, type: enum, values: [App, 小程序, 网页]}
+
+  Shipment:
+    zh: 运单
+    table: shipments
+    key: shipment_id
+    synonyms: [运单, 快递, 包裹, 履约]
+    properties:
+      ship_time: {zh: 发货时间, type: timestamp}
+      promised_time: {zh: 承诺送达时间, type: timestamp, desc: 按区域 SLA 计算}
+      delivery_time: {zh: 签收时间, type: timestamp, desc: 为空表示尚未妥投}
+      status: {zh: 运单状态, type: enum, values: [已签收, 运输中, 异常]}
+
+  Product:
+    zh: 商品
+    table: products
+    key: product_id
+    synonyms: [商品, 货品, 产品]
+    properties:
+      product_name: {zh: 商品名称, type: string}
+      brand: {zh: 品牌, type: string, desc: 取值随商品表数据同步（以数据为准，本体不重复枚举）}
+      category: {zh: 品类, type: enum, values: [数码, 家电, 服饰, 食品, 美妆]}
+      price: {zh: 吊牌价, type: decimal}
+
+  Customer:
+    zh: 客户
+    table: customers
+    key: customer_id
+    synonyms: [客户, 顾客, 买家, 商家]
+    properties:
+      customer_name: {zh: 客户名称, type: string}
+      city: {zh: 城市, type: string}
+      province: {zh: 省份, type: string}
+      region: {zh: 大区, type: enum, values: [华东, 华南, 华北, 华中, 西南, 西北, 东北]}
+
+  Carrier:
+    zh: 承运商
+    table: carriers
+    key: carrier_id
+    synonyms: [承运商, 物流商, 快递公司]
+    properties:
+      carrier_name: {zh: 承运商名称, type: string}
+      rating: {zh: 服务评分, type: float}
+
+relations:
+  - {from: Order, to: Shipment, zh: 发货, join: "s.order_id = o.order_id"}
+  - {from: Shipment, to: Carrier, zh: 承运, join: "s.carrier_id = k.carrier_id"}
+  - {from: Order, to: Product, zh: 包含, join: "o.product_id = p.product_id"}
+  - {from: Order, to: Customer, zh: 下单方, join: "o.customer_id = c.customer_id"}
+
+axioms:
+  - id: fulfillment_delay
+    zh: 履约超时
+    expr: "s.delivery_time > s.promised_time"
+    desc: 实际签收晚于承诺送达即超时（仅对已签收运单成立）
+    params: {threshold_hours: null}   # 不设默认阈值 → 若问题指定"超过 N 小时"则按 N 计算
+  - id: fulfillment_hours
+    zh: 履约时长（小时）
+    expr: "date_diff('hour', s.ship_time, s.delivery_time)"
+    desc: 从发货到签收的耗时；缺失签收时间时不参与计算
+  - id: region_of_order
+    zh: 订单归属区域
+    expr: "c.region"
+    desc: 订单的区域 = 下单客户所在大区（经 customers 表关联）
+
+# 本体刻意"不覆盖"的外部知识（用于陷阱题：平台应诚实说不知道）
+not_covered:
+  - term: 退货率
+    reason: 数据仓库中不存在退货/退款表
+  - term: 退款
+    reason: 订单表中无退款字段
+  - term: 毛利
+    reason: 订单/商品表中无成本字段
+  - term: 成本
+    reason: 数据集中没有成本数据
+  - term: 库存
+    reason: 无库存快照表
+  - term: 安卓
+    reason: 品牌为枚举值（苹果/华为/小米/OPPO/vivo），"安卓"属于外部知识，本体刻意不猜测

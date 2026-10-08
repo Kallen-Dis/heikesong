@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "semantica"
+version = "0.1.0"
+description = "语枢 Semantica —— AI 原生数据平台的语义编译器原型"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "slow: 需要跑全量题库或真实数据库的较慢测试",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
