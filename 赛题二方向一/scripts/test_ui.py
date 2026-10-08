@@ -6,8 +6,11 @@
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
+
+os.environ["SEMANTICA_UI_TEST"] = "1"
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -20,8 +23,9 @@ def main() -> None:
     at.run()
     assert not at.exception, f"初始渲染异常: {at.exception}"
     print("✅ 初始渲染 OK")
-    print("   标题:", [t.value for t in at.title])
-    print("   metric 卡片数:", len(at.metric))
+    brand = [m.value for m in at.markdown if m.value and "语枢 Semantica" in m.value]
+    assert brand, "页头应包含语枢 Semantica"
+    print("   页头 OK | metric 卡片数:", len(at.metric))
 
     # 提问：口径歧义（金额三口径）
     at.chat_input[0].set_value("8月的金额是多少？").run()
@@ -32,7 +36,7 @@ def main() -> None:
         print("   ·", r.label, "->", [str(o) for o in r.options][:4])
 
     # 点击"确认并执行"
-    btn = [b for b in at.button if "确认并执行" in b.label]
+    btn = [b for b in at.button if "按这个去查" in b.label or "确认并执行" in b.label]
     assert btn, f"找不到确认按钮: {[b.label for b in at.button]}"
     btn[0].click().run()
     assert not at.exception, f"确认执行异常: {at.exception}"
@@ -49,6 +53,9 @@ def main() -> None:
     at2 = AppTest.from_file(str(ROOT / "app.py"), default_timeout=120)
     at2.run()
     assert not at2.exception, f"教学面板渲染异常: {at2.exception}"
+    at2.session_state["tour_step"] = None
+    at2.run()
+    assert not at2.exception, f"关闭导览后渲染异常: {at2.exception}"
     assert any("现场教学" in e.label for e in at2.expander), "应渲染现场教学面板"
     teach_btn = [b for b in at2.button if "教会平台" in b.label]
     assert teach_btn, "应有『教会平台』按钮"
