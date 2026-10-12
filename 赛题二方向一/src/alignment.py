@@ -15,6 +15,7 @@ v1 计划：+ embedding 语义检索 + LLM 仲裁（三通道混合，接口已�
 from __future__ import annotations
 
 import re
+import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -143,11 +144,15 @@ class Aligner:
         self.axiom_terms = axiom_base if self.profile != "no_axioms" else set()
         self._language_mtimes = {str(p): (p.stat().st_mtime if p.exists() else 0.0)
                                  for p in self._language_paths()}
+        self._language_digests = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+                                 for p in self._language_paths()}
 
     def maybe_reload(self) -> bool:
         """检测语法源变更（如现场教学写入 learned.yaml）并热重载。"""
         cur = {str(p): (p.stat().st_mtime if p.exists() else 0.0) for p in self._language_paths()}
-        if cur != self._language_mtimes:
+        contents = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+                    for p in self._language_paths()}
+        if cur != self._language_mtimes or contents != self._language_digests:
             self._load_language_sources()
             return True
         return False
@@ -163,7 +168,7 @@ class Aligner:
         start = pd.Timestamp(year=y, month=m, day=1)
         end_excl = start + pd.offsets.MonthBegin(1)
         cap = self.end.normalize() + pd.Timedelta(days=1)
-        if end_excl > cap:  # 截止日所在月未结束
+        if start < cap < end_excl:  # 仅截断包含截止日的月份，未来月份保留合法空窗口
             end_excl = cap
         last = end_excl - pd.Timedelta(days=1)
         return TimeRange(start, end_excl, f"{label}（{start:%m/%d}–{last:%m/%d}）")
@@ -175,12 +180,17 @@ class Aligner:
     def resolve_time(self, q: str) -> tuple[str, object]:
         """返回 ("range", TimeRange) | ("ambiguous", options) | ("none", None)"""
         y = self.end.year
-        m = re.search(r"(\d{1,2})月(\d{1,2})日\s*[到至~]\s*(\d{1,2})月(\d{1,2})日", q)
+        m = re.search(r"(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日\s*[到至~]\s*"
+                      r"(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日", q)
         if m:
-            m1, d1, m2, d2 = (int(x) for x in m.groups())
-            start = pd.Timestamp(year=y, month=m1, day=d1)
-            end_excl = pd.Timestamp(year=y, month=m2, day=d2) + pd.Timedelta(days=1)
-            return "range", TimeRange(start, end_excl, f"{m1}/{d1}–{m2}/{d2}")
+            y1, m1, d1, y2, m2, d2 = m.groups()
+            start = pd.Timestamp(year=int(y1 or y), month=int(m1), day=int(d1))
+            end_excl = pd.Timestamp(year=int(y2 or y1 or y), month=int(m2), day=int(d2)) + pd.Timedelta(days=1)
+            return "range", TimeRange(start, end_excl, f"{start:%Y/%m/%d}–{end_excl - pd.Timedelta(days=1):%Y/%m/%d}")
+        m = re.search(r"(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日", q)
+        if m:
+            start = pd.Timestamp(year=int(m.group(1) or y), month=int(m.group(2)), day=int(m.group(3)))
+            return "range", TimeRange(start, start + pd.Timedelta(days=1), f"{start:%Y/%m/%d}")
         m = re.search(r"(\d{4})年(\d{1,2})月", q)
         if m:
             return "range", self._month(int(m.group(1)), int(m.group(2)), f"{m.group(1)}年{m.group(2)}月")
@@ -243,13 +253,62 @@ class Aligner:
                 break
         if dim is None:
             return None
-        if "妥投" in q:
+        if metric_id is not None:
+            rmetric = metric_id
+        elif "妥投" in q or "签收率" in q:
             rmetric = "SignedRate"
         elif "超时" in q:
             rmetric = "DelayCount"
         else:
             rmetric = metric_id
         return {"dim": dim, "metric": rmetric}
+
+    def _unsupported_composition(self, q: str, a: Alignment) -> str | None:
+        """拒绝尚不能表达的运算，避免只执行问题中已识别的一小部分。"""
+        if re.search(r"(?:前|top\s*)\s*(?:\d+|[一二三四五六七八九十]+)\s*(?:名|个)?", q, re.IGNORECASE):
+            return "当前排名只支持最高/最多的第1名，尚不支持Top-N列表。"
+        if re.search(r"按天|每天|逐日|每日|按周|按月|趋势|走势", q):
+            return "当前查询尚不支持时间序列分组，请给出单一时间窗口聚合。"
+        if re.search(r"(?:金额|实付|价格|单价|每笔|订单)\s*(?:大于|小于|超过|低于|高于|[<>]=?)\s*\d|\d\s*元", q):
+            return "当前查询尚不支持金额或单价阈值筛选，不能忽略这个条件。"
+        if "已完成" in q and not self._covered_by_metric("已完成", a):
+            return "当前查询尚不支持已完成状态筛选，请使用明确的全部订单或有效订单口径。"
+        named_brand = re.search(r"([\u4e00-\u9fffA-Za-z0-9]{1,12})品牌", q)
+        if named_brand and not any(named_brand.group(1).endswith(b) for b in self.brands) \
+                and not named_brand.group(1).endswith(("哪个", "什么", "各", "所有", "的")):
+            return "指定品牌不在当前数据值词表中，不能忽略品牌条件后返回全量。"
+        if any(w in q for w in ("增长", "环比", "同比", "相比", "相较")) \
+                or re.search(r"比.+(?:高|低|多|少|变化|差)", q):
+            if a.metric_id is None:
+                return "未指定指标：请说明比较的指标；当前引擎尚不支持增长、环比或同比计算。"
+            return "当前引擎尚不支持增长、环比或同比计算，请分别查询两个明确时间窗口。"
+
+        # 一个连续的日范围可以包含两个月份；其余多时间表达不能折叠为首月。
+        day_range = re.search(r"(?:\d{4}年)?\d{1,2}月\d{1,2}日\s*[到至~]\s*"
+                              r"(?:\d{4}年)?\d{1,2}月\d{1,2}日", q)
+        if not day_range and re.search(r"月\d{1,2}日\s*[到至~\-]\s*\d{1,2}日", q):
+            return "当前引擎要求完整起止日期，例如「8月1日到8月7日」，请补充结束日期的月份。"
+        time_text = q[:day_range.start()] + q[day_range.end():] if day_range else q
+        anchors = re.findall(r"(?:\d{4}年)?\d{1,2}月|(?:上|本|这个)个?月|"
+                             r"(?:近|最近)\d+(?:个)?天|(?:近|最近|这)\s*(?:一)?(?:周|星期)", time_text)
+        if len(anchors) + bool(day_range) > 1 \
+                or (not day_range and re.search(r"\d{1,2}月\s*(?:到|至|~|-|和|与|、)\s*\d{1,2}月", q)):
+            return "当前引擎尚不支持多时间窗口或跨月范围，请给出一个月份或明确的起止日期。"
+
+        # 区域/承运商/品类/渠道暂为单值；品牌已有独立分组路径。
+        for label, values in (("区域", REGIONS), ("承运商", self.carriers),
+                              ("品类", self.categories), ("渠道", self.channels)):
+            hits = [v for v in values if v in q and not self._covered_by_metric(v, a)]
+            if len(hits) > 1:
+                return f"当前引擎尚不支持多个{label}的并列筛选或对比，请分别查询。"
+        entity_values = [*REGIONS, *self.brands, *self.categories, *self.carriers, *self.channels]
+        for word in entity_values:
+            if re.search(r"(?:排除|除去|不含|剔除|去掉|除了)\s*" + re.escape(word), q):
+                return "当前引擎尚不支持实体排除条件，请使用明确的包含筛选条件。"
+        if re.search(r"各(?:区域|地区|大区|承运商|品类|渠道|客户)", q) \
+                or ("分组" in q and not re.search(r"品牌.*分组|分组.*品牌", q)):
+            return "当前引擎只支持品牌对比和单维度第一名查询，尚不支持该分组查询。"
+        return None
 
     # ---------------------------------------------------------- 主入口
 
@@ -267,6 +326,12 @@ class Aligner:
         hits = [(t, mid) for t, mid in self.metric_terms if t in q]
         if hits:
             a.metric_id = max(hits, key=lambda kv: len(kv[0]))[1]
+            # 短词可能是长指标名称的一部分；独立出现的第二个指标则不能被丢弃。
+            longest = max(hits, key=lambda kv: len(kv[0]))[0]
+            remaining = q.replace(longest, "")
+            if any(mid != a.metric_id and term in remaining for term, mid in hits):
+                a.unsupported = "当前引擎一次查询仅支持一个指标，请分别查询各指标。"
+                return a
         # "超时"上下文规则：率/占比 → DelayRate；数量词 → DelayCount
         if a.metric_id is None and any(t in q for t in self.axiom_terms):
             if any(w in q for w in ("率", "占比", "比例")):
@@ -279,9 +344,19 @@ class Aligner:
                 a.metric_id = "DelayRate"
 
         # 3) 时间
-        kind, payload = self.resolve_time(q)
+        a.unsupported = self._unsupported_composition(q, a)
+        if a.unsupported:
+            return a
+        try:
+            kind, payload = self.resolve_time(q)
+        except (ValueError, OverflowError):
+            a.unsupported = "时间表达无效：请使用合法的月份和日期。"
+            return a
         if kind == "range":
             a.time = payload
+            if a.time.end_excl <= a.time.start:
+                a.unsupported = "时间范围无效：结束日期必须不早于开始日期，最近天数必须大于零。"
+                return a
         elif kind == "ambiguous":
             a.clarify.append(ClarifyPoint("time", "时间范围不明确，请选择：", payload))
 
@@ -322,17 +397,38 @@ class Aligner:
             if c in q and not self._covered_by_metric(c, a):
                 a.filters["category"] = c
                 break
+        for channel in self.channels:
+            if channel.lower() in q.lower() and not self._covered_by_metric(channel, a):
+                a.filters["channel"] = channel
+                break
 
         # 5) 排名 / 阈值
         a.ranking = self._detect_ranking(q, a.metric_id)
         a.threshold_hours = self._detect_threshold(q) if self.profile != "no_axioms" else None
+        # 「履约时长」也可只是阈值计数的属性，不能被口语别名误判为 AVG 请求。
+        if a.threshold_hours is not None and a.metric_id == "AvgFulfillmentHours" \
+                and "平均" not in q and any(w in q for w in ("多少", "数量", "几单", "几个")):
+            a.metric_id = None
+        if a.threshold_hours is not None and a.metric_id is not None:
+            a.unsupported = "当前时长阈值查询只支持已签收运单计数，尚不支持与其他指标组合。"
+            a.clarify = []
+            return a
+        if a.threshold_hours is not None and a.ranking:
+            a.unsupported = "当前引擎尚不支持时长阈值与排名组合，请分别查询。"
+            a.clarify = []
+            return a
+        if a.threshold_hours is not None and len(a.filters.get("brands", [])) > 1 \
+                and any(w in q for w in ("对比", "比较", "各自", "分别")):
+            a.unsupported = "当前引擎尚不支持时长阈值的品牌分组对比，请分别查询各品牌。"
+            a.clarify = []
+            return a
 
         # 6) 口径：先按口语关键词识别显式口径；未识别且多口径无默认 → 必须问
         if a.metric_id and a.metric_id in self.metrics:
             mdef = self.metrics[a.metric_id]
             if a.variant_id is None:
                 a.variant_id = self._detect_variant(q, mdef)
-            if a.variant_id is None and not a.ranking \
+            if a.variant_id is None \
                     and mdef.get("default_variant") is None and len(mdef.get("variants", [])) > 1:
                 a.clarify.append(ClarifyPoint(
                     "variant", f"「{mdef['zh']}」有多种口径，请选择：", [

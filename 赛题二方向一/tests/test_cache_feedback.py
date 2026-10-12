@@ -27,11 +27,12 @@ class TestSemanticCache:
         assert cache.stats.evictions == 1
         assert cache.stats.hit_rate == pytest.approx(0.5)   # 1 命中 / 1 未命中
 
-    def test_key_normalizes_whitespace_and_case(self):
+    def test_key_normalizes_whitespace_but_preserves_parser_case(self):
         cache = SemanticCache()
         k1 = cache.make_key("  8月的GMV是多少？ ", "full", "v1")
-        k2 = cache.make_key("8月的gmv是多少？", "full", "v1")
+        k2 = cache.make_key("8月的GMV是多少？", "full", "v1")
         assert k1 == k2
+        assert k1 != cache.make_key("8月的gmv是多少？", "full", "v1")
 
     def test_version_changes_with_ontology_mtime(self):
         assert cache_version({"a.yaml": 1.0}, None) != cache_version({"a.yaml": 2.0}, None)

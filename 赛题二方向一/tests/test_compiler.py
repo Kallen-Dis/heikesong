@@ -94,7 +94,7 @@ class TestForms:
         a.threshold_hours = 72.0
         res = compiler.compile(a)
         assert res.kind == "threshold"
-        assert "date_diff('hour', s.ship_time, s.delivery_time) > ?" in res.sql
+        assert "epoch(s.delivery_time - s.ship_time) / 3600.0 > ?" in res.sql
         assert 72.0 in res.params
         assert any("区域 = 华东" in line for line in res.disclosure), "阈值题也应披露筛选条件"
 

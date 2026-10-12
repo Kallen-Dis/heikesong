@@ -59,7 +59,7 @@ class SemanticCache:
 
     def make_key(self, question: str, profile: str, version: str,
                  auto_resolve: bool = False) -> tuple:
-        normalized = " ".join((question or "").split()).lower()
+        normalized = " ".join((question or "").split())
         return (normalized, profile, auto_resolve, version)
 
     def get(self, key: tuple) -> Any | None:

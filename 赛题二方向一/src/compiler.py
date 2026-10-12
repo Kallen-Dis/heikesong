@@ -12,7 +12,11 @@ v0 支持四种编译形态：
 from __future__ import annotations
 
 import re
+import math
 from dataclasses import dataclass, field
+from datetime import datetime
+
+import pandas as pd
 
 from .alignment import Alignment
 from .db import render_sql
@@ -74,7 +78,8 @@ class Compiler:
         """按需装配 JOIN：筛选条件 + 排名维度 + 表达式/时间基准中引用的别名。"""
         blob = f"{expr} {time_basis}"
         parts = ["orders o"]
-        if metric_table == "shipments" or re.search(r"\bs\.", blob):
+        if metric_table == "shipments" or re.search(r"\b(?:s|k)\.", blob) \
+                or filters.get("carrier") or ranking_dim == "carrier":
             parts.append("JOIN shipments s ON s.order_id = o.order_id")
         if filters.get("region") or filters.get("customer") or filters.get("customer_like") \
                 or ranking_dim == "region" or re.search(r"\bc\.", blob):
@@ -102,6 +107,9 @@ class Compiler:
             items.append((f"{col} = ?", [filters[key]]))
         if "customer_like" not in skip and filters.get("customer_like"):
             items.append(("c.customer_name LIKE ?", [f"%{filters['customer_like']}%"]))
+        if "brands" not in skip and filters.get("brands"):
+            brands = list(filters["brands"])
+            items.append((f"p.brand IN ({', '.join('?' for _ in brands)})", brands))
         return items
 
     @staticmethod
@@ -123,6 +131,9 @@ class Compiler:
             if k == "customer_like":
                 v = f"*{v}*"
             lines.append(f"筛选：{label} = {v}")
+        if mdef["table"] == "orders" and (a.filters.get("carrier")
+                or (a.ranking or {}).get("dim") == "carrier"):
+            lines.append("关联粒度：仅统计已关联运单的订单；每订单至多一运单契约由执行前检查保障")
         return lines
 
     # ------------------------------------------------------------ 编译入口
@@ -131,6 +142,43 @@ class Compiler:
         """编译入口：按对齐结果选择形态；前置条件不足时抛出可读异常。"""
         if a.time is None:
             raise ValueError("缺少时间范围：编译前必须先确定时间口径")
+        if not isinstance(a.time.start, (pd.Timestamp, datetime)) \
+                or not isinstance(a.time.end_excl, (pd.Timestamp, datetime)) \
+                or pd.isna(a.time.start) or pd.isna(a.time.end_excl) \
+                or a.time.end_excl <= a.time.start:
+            raise ValueError("时间范围无效：起止时间必须合法，结束时间必须晚于开始时间")
+        if a.clarify:
+            raise ValueError("存在未完成的澄清，不能编译查询")
+        if not isinstance(a.filters, dict):
+            raise ValueError("筛选条件必须为字段到值的映射")
+        unknown = set(a.filters) - set(FILTER_ZH)
+        if unknown:
+            raise ValueError(f"不支持的筛选字段：{sorted(unknown)}")
+        for key, value in a.filters.items():
+            if key == "brands":
+                if not isinstance(value, list) or not value \
+                        or any(not isinstance(v, str) or not v.strip() for v in value):
+                    raise ValueError("brands 筛选必须为非空字符串列表")
+            elif not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{key} 筛选必须为非空字符串")
+        if "brand" in a.filters and "brands" in a.filters:
+            raise ValueError("brand 与 brands 筛选不能同时出现")
+        if a.metric_id is not None and a.metric_id not in self.metrics:
+            raise KeyError(f"未知指标 {a.metric_id}")
+        if a.ranking is not None:
+            if not isinstance(a.ranking, dict) or set(a.ranking) != {"dim", "metric"} or a.ranking.get("dim") not in DIM_EXPR \
+                    or a.ranking.get("metric") not in self.metrics:
+                raise ValueError("排名维度或指标无效")
+            if a.metric_id != a.ranking["metric"]:
+                raise ValueError("排名指标与对齐指标不一致")
+        if a.threshold_hours is not None:
+            if isinstance(a.threshold_hours, bool) or not isinstance(a.threshold_hours, (int, float)) \
+                    or not math.isfinite(a.threshold_hours) or a.threshold_hours < 0:
+                raise ValueError("时长阈值必须为有限的非负数字")
+            if a.ranking:
+                raise ValueError("当前引擎不支持时长阈值与排名组合")
+            if a.metric_id is not None:
+                raise ValueError("当前时长阈值查询只支持已签收运单计数，不能与其他指标组合")
         if a.ranking:
             return self._compile_ranking(a)
         if a.threshold_hours is not None:
@@ -158,14 +206,14 @@ class Compiler:
     def _compile_ranking(self, a: Alignment) -> CompileResult:
         dim = a.ranking["dim"]
         metric_id = a.ranking["metric"] or "DelayCount"
-        expr, variant = self._expr(metric_id, None)
+        expr, variant = self._expr(metric_id, a.variant_id)
         mdef = self.metrics[metric_id]
         froms = self._from_clause(mdef["table"], a.filters, dim, expr, mdef["time_basis"])
         where_sql, params = self._assemble(
             self._where(mdef["time_basis"], a.filters, a.time))
         sql = (f"SELECT {DIM_EXPR[dim]} AS value\nFROM {' '.join(froms)}\n"
                f"WHERE {where_sql}\n"
-               f"GROUP BY 1\nORDER BY {expr} DESC NULLS LAST\nLIMIT 1")
+               f"GROUP BY 1\nORDER BY {expr} DESC NULLS LAST, {DIM_EXPR[dim]} ASC\nLIMIT 1")
         disc = self._base_disclosure(metric_id, variant, a)
         disc.append(f"排名：按指标降序取第 1 名（维度：{DIM_ZH[dim]}）")
         return CompileResult(sql=sql, params=params, disclosure=disc, kind="ranking")
@@ -176,7 +224,7 @@ class Compiler:
         froms = self._from_clause("shipments", a.filters, None, "", "s.ship_time")
         items: list[tuple[str, list]] = [
             ("s.delivery_time IS NOT NULL", []),
-            ("date_diff('hour', s.ship_time, s.delivery_time) > ?", [h]),
+            ("epoch(s.delivery_time - s.ship_time) / 3600.0 > ?", [h]),
             *self._where("s.ship_time", a.filters, a.time),
         ]
         where_sql, params = self._assemble(items)
@@ -195,7 +243,7 @@ class Compiler:
         mdef = self.metrics[a.metric_id]
         brands = list(a.filters["brands"])
         froms = self._from_clause(mdef["table"], a.filters, "brand", expr, mdef["time_basis"])
-        items = [*self._where(mdef["time_basis"], a.filters, a.time, skip=frozenset({"brand"})),
+        items = [*self._where(mdef["time_basis"], a.filters, a.time, skip=frozenset({"brand", "brands"})),
                  (f"p.brand IN ({', '.join('?' * len(brands))})", brands)]
         where_sql, params = self._assemble(items)
         sql = (f"SELECT p.brand AS value, {expr} AS metric\nFROM {' '.join(froms)}\n"

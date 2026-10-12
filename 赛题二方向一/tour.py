@@ -30,12 +30,15 @@ def render_coach() -> None:
     _init()
     with st.sidebar:
         st.markdown("### 语枢 Semantica")
-        st.caption("语义编译器 · 演示")
+        st.caption("Agent 语义执行网关 · 合成数据演示")
         st.markdown(
-            "同一批含糊的账务问题，裸 LLM 直连答对 **21.7%**，"
-            "语枢先澄清歧义再查询，**120 题全对**。"
+            "AI 使用数据，需要共同的业务含义，还需要可执行的使用条件。"
+            "从口径澄清、证据重放，到分层比较与情景推演。"
         )
         st.divider()
+        st.page_link("pages/4_比较前先检查.py", label="01 · SQL正确，结论反转")
+        st.page_link("pages/2_契约与证据.py", label="02 · 契约与证据")
+        st.page_link("pages/3_决策实验室.py", label="03 · 条件决策实验室")
         if st.button("📊 实验战绩", width="stretch", type="primary"):
             st.switch_page("pages/1_战绩看板.py")
 

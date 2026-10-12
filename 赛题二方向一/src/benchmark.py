@@ -11,10 +11,11 @@
 from __future__ import annotations
 
 import json
-import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+
+import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 BENCHMARK_PATH = ROOT / "benchmark" / "ambiquery_v1.jsonl"
@@ -94,8 +95,11 @@ def values_match(got: object, want: object, rel: float = 1e-6) -> bool:
     def clean(v: object) -> object:
         if hasattr(v, "item"):
             v = v.item()
-        if isinstance(v, float) and math.isnan(v):
-            return None
+        try:
+            if bool(pd.isna(v)):
+                return None
+        except (TypeError, ValueError):
+            pass
         return v
 
     got, want = clean(got), clean(want)
@@ -108,6 +112,40 @@ def values_match(got: object, want: object, rel: float = 1e-6) -> bool:
     if isinstance(got, str) and isinstance(want, str):
         return got.strip() == want.strip()
     return False   # 类型/语义不同（如 3 与 '3'）不得视为相等
+
+
+def results_match(got, want, rel: float = 1e-6, *, ordered: bool = False) -> bool:
+    """比较完整结果表（行数、列数和所有单元格），而不是首行首列。
+
+    编译器和独立 gold SQL 可能使用不同的列别名，按列位置比较；默认按行多重集
+    比较，保留重复行的次数。要求排序的任务显式传 ordered=True。
+    """
+    if got is None or want is None or got.shape != want.shape:
+        return False
+    actual = list(got.itertuples(index=False, name=None))
+    expected = list(want.itertuples(index=False, name=None))
+
+    def row_matches(a, b):
+        return all(values_match(x, y, rel) for x, y in zip(a, b))
+
+    if ordered:
+        return all(row_matches(a, b) for a, b in zip(actual, expected))
+    # 最大二分匹配：即便容差导致一个数匹配多个 gold，也不会由贪心顺序误判。
+    edges = [[j for j, row in enumerate(expected) if row_matches(candidate, row)]
+             for candidate in actual]
+    matched: dict[int, int] = {}
+
+    def assign(i: int, seen: set[int]) -> bool:
+        for j in edges[i]:
+            if j in seen:
+                continue
+            seen.add(j)
+            if j not in matched or assign(matched[j], seen):
+                matched[j] = i
+                return True
+        return False
+
+    return all(assign(i, set()) for i in range(len(actual)))
 
 
 def predicted_clarifications(alignment) -> set[str]:

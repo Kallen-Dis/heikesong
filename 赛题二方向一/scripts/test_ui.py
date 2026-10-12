@@ -36,6 +36,9 @@ def main() -> None:
         print("   ·", r.label, "->", [str(o) for o in r.options][:4])
 
     # 点击"确认并执行"
+    for radio in at.radio:
+        radio.set_value(0)
+    at.run()
     btn = [b for b in at.button if "按这个去查" in b.label or "确认并执行" in b.label]
     assert btn, f"找不到确认按钮: {[b.label for b in at.button]}"
     btn[0].click().run()

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.benchmark import CATEGORIES, load_items, values_match
+from src.benchmark import CATEGORIES, load_items, results_match
 from src.db import run_sql
 
 
@@ -24,9 +24,9 @@ def outcomes(conn, loop):
         elif ans.type != "answer":
             ok, detail = False, f"未得到答案（{ans.type}）"
         else:
-            gold = run_sql(conn, it.gold_sql).iloc[0, 0]
-            ok = values_match(ans.value, gold)
-            detail = f"值不符：{ans.value!r} vs gold {gold!r}"
+            gold = run_sql(conn, it.gold_sql)
+            ok = results_match(ans.df, gold)
+            detail = f"完整结果不符：{ans.rows or ans.value!r} vs gold {gold.to_dict('records')!r}"
         result.append((it, ok, detail))
     return result
 

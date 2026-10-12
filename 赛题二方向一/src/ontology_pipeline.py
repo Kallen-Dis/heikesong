@@ -56,7 +56,7 @@ metrics:
         expr: "<单个 DuckDB 聚合表达式>"
 2. expr 的 SQL 别名仅允许：orders→o，shipments→s，products→p，customers→c，carriers→k；
 3. expr 必须是单行表达式（聚合/比率皆可），禁止分号、禁止子查询、禁止注释；
-4. 时间差建议用 date_diff('hour', 较早时间, 较晚时间)；比率用 * 1.0 / 保证浮点；
+4. 真实耗时用 epoch(较晚时间 - 较早时间) / 3600.0，不用整点边界计数；比率用 * 1.0 / 保证浮点；
 5. 若定义涉及"占比/率"，分母用 COUNT(*) 或相应的 FILTER 条件；
 6. requires 必须完整列出 expr 与 time_basis 引用到的表（缺失会被本体校验器判为错误）；
 7. default_rationale 用一句中文说明"为什么这个口径无需澄清即可直接使用"。

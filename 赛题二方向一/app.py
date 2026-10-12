@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import sys
+import json
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -138,6 +139,12 @@ def teach_term(term: str, desc: str) -> None:
 # ---------------------------------------------------------------- 页头（结论先行）
 
 render_hero()
+with st.container(border=True):
+    st.markdown("**三分钟体验核心想法**")
+    c1, c2, c3 = st.columns(3)
+    c1.page_link("pages/4_比较前先检查.py", label="① 看一次判断反转", icon="🔄")
+    c2.page_link("pages/2_契约与证据.py", label="② 取得带使用条件的数据", icon="🔎")
+    c3.page_link("pages/3_决策实验室.py", label="③ 比较带假设的方案", icon="🧪")
 
 with st.expander("关于这套演示账本", expanded=False):
     c1, c2, c3, c4 = st.columns(4)
@@ -185,6 +192,12 @@ def render_answer(ans) -> None:
                     "真正执行时，日期和筛选值是单独绑定的，不会把原文直接拼进去。"
                 )
                 st.code(ans.sql, language="sql")
+        if ans.evidence:
+            with st.expander("完整证据包：版本与重放"):
+                st.caption("包含完整结果、口径契约、SQL参数与本地版本；不附带原始数据快照。")
+                st.json(ans.evidence)
+                st.download_button("下载证据包", json.dumps(ans.evidence, ensure_ascii=False, indent=2),
+                    file_name="semantica-evidence.json", mime="application/json", key=ans.evidence["receipt_id"])
     elif ans.type == "insufficient":
         st.warning(f"🛑 {ans.text}")
         st.caption(
@@ -274,12 +287,13 @@ if pending and is_clarification(pending.get("clar")):
             idx = st.radio(
                 "选项",
                 options=range(len(labels)),
+                index=None,
                 format_func=lambda i, ls=labels: ls[i],
                 key=f"clar_{clar_nonce}_{point.id}",
                 label_visibility="collapsed",
             )
             choices[point.id] = idx
-        if st.button("按这个去查", type="primary"):
+        if st.button("按这个去查", type="primary", disabled=any(v is None for v in choices.values())):
             ans = loop.resolve(clar, choices)
             if is_clarification(ans):
                 st.session_state.pending = {"question": pending["question"], "clar": ans}

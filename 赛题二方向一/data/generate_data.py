@@ -239,7 +239,7 @@ def generate(end_date: str, seed: int, out_path: Path) -> dict:
         "SELECT "
         "COUNT(*) FILTER (WHERE delivery_time IS NOT NULL) * 1.0 / COUNT(*), "
         "COUNT(*) FILTER (WHERE delivery_time > promised_time) * 1.0 / NULLIF(COUNT(*) FILTER (WHERE delivery_time IS NOT NULL), 0), "
-        "AVG(date_diff('hour', ship_time, delivery_time)) "
+        "AVG(epoch(delivery_time - ship_time) / 3600.0) "
         "FROM shipments").fetchone()
     stats["key_aggregates"] = {
         "gmv_gross": float(gmv[0]), "gmv_paid": float(gmv[1]), "gmv_net": float(gmv[2]),

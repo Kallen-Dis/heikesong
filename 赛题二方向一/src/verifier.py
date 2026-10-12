@@ -41,5 +41,5 @@ def build_trust(conn: duckdb.DuckDBPyConnection, metrics: dict, a: Alignment,
         trust["阈值"] = f"> {a.threshold_hours} 小时"
     if a.time:
         trust["时间范围"] = a.time.label
-    trust["置信度"] = "中（空结果，请检查筛选条件）" if empty else "高（规则对齐 + 口径披露）"
+    trust["置信度"] = "待核对（空结果）" if empty else "规则校验通过；非统计置信度"
     return trust

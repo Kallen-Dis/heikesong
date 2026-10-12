@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.benchmark import CATEGORIES, load_items, values_match  # noqa: E402
+from src.benchmark import CATEGORIES, load_items, results_match  # noqa: E402
 from src.db import connect, run_sql  # noqa: E402
 from src.loop import QueryLoop  # noqa: E402
 
@@ -56,9 +56,11 @@ def main() -> int:
         elif ans.type != "answer":
             verdict, detail = "FAIL", f"未得到答案（{ans.type}）：{ans.text[:80]}"
         elif it.gold_sql:
-            gold = run_sql(conn, it.gold_sql).iloc[0, 0]
-            if not values_match(ans.value, gold):
-                verdict, detail = "FAIL", f"结果不一致：语枢 {ans.value!r} vs gold {gold!r}"
+            gold = run_sql(conn, it.gold_sql)
+            if not results_match(ans.df, gold):
+                verdict, detail = "FAIL", f"完整结果不一致：语枢 {ans.rows or ans.value!r} vs gold {gold.to_dict('records')!r}"
+        else:
+            verdict, detail = "FAIL", "缺少独立 gold SQL，无法判定答案正确性"
         per_cat[it.category][0] += int(verdict == "PASS")
         if verdict == "FAIL":
             failures.append((it.id, it.question, detail))
@@ -84,7 +86,8 @@ def main() -> int:
         "",
         f"- 生成时间：{stamp}　｜　题库：{total} 题",
         "- 路线：语枢语义编译器（对齐 → 澄清 → 编译 → 执行 → 披露），**完全离线、结果确定**",
-        "- 澄清策略：按题库设计取第 1 口径；陷阱题要求返回「数据不足」且不编造数字",
+        "- 澄清策略：按题库设计取第 1 口径（模拟选择，不计作真实用户确认）；陷阱题要求返回「数据不足」且不编造数字",
+        "- 判定范围：自建题库回归；完整比较结果表的行数、列数与所有单元格，不能作为独立泛化评测",
         "",
         f"## 总成绩：**{passed}/{total} = {passed / total:.1%}**",
         "",
@@ -115,7 +118,7 @@ def main() -> int:
         print(f"  失败 {len(failures)} 题：" + "、".join(qid for qid, _, _ in failures[:12])
               + ("…" if len(failures) > 12 else ""))
     print(f"  报告：{out.relative_to(ROOT)}｜明细：{csv_path.relative_to(ROOT)}")
-    return 0
+    return int(bool(failures))
 
 
 if __name__ == "__main__":

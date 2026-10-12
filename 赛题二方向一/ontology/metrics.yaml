@@ -96,4 +96,4 @@ metrics:
     variants:
       - id: ship_to_delivery
         zh: 发货→签收（小时，仅统计已妥投）
-        expr: "AVG(date_diff('hour', s.ship_time, s.delivery_time))"
+        expr: "AVG(epoch(s.delivery_time - s.ship_time) / 3600.0)"

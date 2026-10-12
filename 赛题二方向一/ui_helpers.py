@@ -514,32 +514,20 @@ def render_brand_header() -> None:
 
 
 def render_hero() -> None:
-    """结论先行：裸 LLM 直连 21.7% vs 语枢 100%。"""
+    """Flagship positioning: data with explicit conditions for agent use."""
     st.markdown(
         """
         <div class="hero">
           <div class="hero-brand">🧭 语枢 Semantica</div>
-          <h1>直接把含糊问题丢给大模型，只对 2 成；语枢 100% 全对</h1>
+          <h1>SQL 算对了，AI 的决策仍然可能错。</h1>
           <div class="hero-sub">
-            同一批故意写得很含糊的账务问题：<b>裸 LLM 直连</b>凭表结构硬猜，答对 <b>21.7%</b>；
-            语枢先翻译、问清歧义、再查询，<b>120 题全对</b>。
-          </div>
-          <div class="hero-compare">
-            <div class="hero-row">
-              <span class="lbl">裸 LLM 直连</span>
-              <div class="track"><div class="fill bad" style="width:21.7%">21.7%</div></div>
-              <span class="val">21.7%</span>
-            </div>
-            <div class="hero-row">
-              <span class="lbl">语枢</span>
-              <div class="track"><div class="fill good" style="width:100%">100%</div></div>
-              <span class="val">100%</span>
-            </div>
+            语枢为现有数仓增加 <b>Agent 语义执行网关</b>：
+            AI 取得的不只是数字，还有它的口径、版本、证据和使用条件。
           </div>
           <div class="hero-why">
-            <span class="chip">① 歧义先澄清</span>
-            <span class="chip">② 无数据则拒绝</span>
-            <span class="chip">③ 结果可核对</span>
+            <span class="chip">① 确认意义</span>
+            <span class="chip">② 携带证据</span>
+            <span class="chip">③ 检查结论的使用条件</span>
           </div>
         </div>
         """,
