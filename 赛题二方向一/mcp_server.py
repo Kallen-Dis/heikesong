@@ -13,6 +13,43 @@ mcp = MCPServer("语枢 Semantica", version="0.2.0")
 _conn = connect()
 _loop = QueryLoop(_conn)
 _gateway = QueryGateway(_loop)
+_recovery = None
+
+def _recovery_runtime():
+    global _recovery
+    if _recovery is None:
+        from src.task_runtime import TaskRuntime
+        _recovery = TaskRuntime()
+    return _recovery
+
+@mcp.tool()
+def start_recovery_task() -> dict:
+    """连接服务端固定配置的合成任务；重复调用只查看，不重置条件或来源权限。
+    用户启动服务采用演示默认目标。宿主Agent无权设置目标权重、开放来源或重置轨迹。
+    """
+    return _recovery_runtime().snapshot()
+
+@mcp.tool()
+def inspect_recovery_task() -> dict:
+    """返回当前字段冲突、覆盖缺口与服务器允许的下一步。"""
+    return _recovery_runtime().observation()
+
+@mcp.tool()
+def execute_recovery_action(tool: str, arguments: dict | None = None) -> dict:
+    """宿主Agent提出工具动作；系统验证参数并构造证据/结论，禁止模型授予范围权限。"""
+    if tool not in {"request_evidence", "derive_comparison", "finalize_claim", "request_clarification", "stop"}:
+        return {"status": "blocked", "summary": "该动作不属于Agent权限；范围变化只能由用户授权。"}
+    runtime = _recovery_runtime()
+    with runtime.lock:
+        from src.task_planner import _validate_decision, _allowed_tools
+        observation = runtime.observation()
+        try:
+            _validate_decision({"tool": tool, "arguments": arguments or {}, "reason": "宿主Agent提案"},
+                               observation, _allowed_tools(observation))
+            runtime.action(tool, arguments or {}, actor="MCP宿主Agent")
+            return runtime.snapshot()
+        except ValueError as exc:
+            return {"status": "blocked", "summary": str(exc)}
 
 @mcp.resource("ontology://metrics")
 def metrics_catalog() -> str:

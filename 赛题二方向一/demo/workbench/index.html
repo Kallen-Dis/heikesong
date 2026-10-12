@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#071725">
+  <title>语枢 Semantica · 任务恢复工作台</title>
+  <link rel="stylesheet" href="workbench.css">
+  <script src="workbench.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">跳到任务工作台</a>
+  <div class="shell">
+    <header class="masthead">
+      <a class="brand" href="./" aria-label="语枢 Semantica 任务恢复工作台"><span class="brand-mark" aria-hidden="true">S<span>·</span></span><span><strong>Semantica <span class="brand-cn">语枢</span></strong><small>MEANING BEFORE ACTION</small></span></a>
+      <div class="mode-control">
+        <div class="mode-tabs" role="group" aria-label="任务规划模式">
+          <button id="mode-protocol" type="button" class="mode-button selected" aria-pressed="true">协议规划</button>
+          <button id="mode-deepseek" type="button" class="mode-button" aria-pressed="false">真实 DeepSeek <span aria-hidden="true">↗</span></button>
+        </div>
+        <p id="mode-note">有限确定性策略 · 未调用语言模型</p>
+      </div>
+      <div class="connection"><span id="connection-dot" class="connection-dot" aria-hidden="true"></span><span id="connection-label">连接本地工作台</span><button id="reconnect" class="icon-button" type="button" aria-label="重新连接后端" title="重新连接">↻</button></div>
+    </header>
+
+    <section class="intro" aria-labelledby="page-title">
+      <div class="intro-copy"><p class="eyebrow"><span aria-hidden="true"></span>DATA AGENT / TASK RECOVERY</p><h1 id="page-title">失败不是句号，<br>而是下一次<span>数据请求。</span></h1><p class="intro-description">从口径冲突到有条件的结论。让 AI 在真实反馈中，继续把任务做完。</p></div>
+      <div class="session-summary">
+        <div class="session-caption"><span class="live-label">本次任务</span><span id="revision-label">尚未连接</span></div>
+        <div class="metrics" aria-label="后端实际执行统计">
+          <div><strong id="metric-calls">—</strong><span>工具调用</span></div>
+          <div><strong id="metric-repairs">—</strong><span>局部修复</span></div>
+          <div><strong id="metric-evidence">—</strong><span>有效证据</span></div>
+          <div><strong id="metric-models">—</strong><span>模型调用</span></div>
+        </div>
+        <p class="summary-note">每一个数字、反馈与结论，来自本地后端的实际执行。</p>
+      </div>
+    </section>
+
+    <div id="service-alert" class="service-alert" role="alert" hidden></div>
+    <main id="workspace" class="workspace" tabindex="-1">
+      <section class="panel target-panel" aria-labelledby="target-heading">
+        <div class="panel-heading"><div><p class="panel-index">01 / INTENT</p><h2 id="target-heading">任务与条件</h2></div><span id="task-id" class="tiny-label">待开启</span></div>
+        <div class="target-content">
+          <label class="field-label" for="goal">希望完成什么</label>
+          <textarea id="goal" rows="3" maxlength="1000" aria-describedby="goal-note">比较承运商 A 与 B 在共同区域构成下的已妥投超时率。</textarea>
+          <p id="goal-note" class="hint">下方结构条件定义本次任务；文字目标供核对，未作通用自然语言解析。</p>
+          <div class="contract"><span class="contract-label">比较契约</span><p>相同分母 <span>已妥投</span></p><p>目标覆盖 <span id="scope-label">完整区域</span></p><p>数据窗口 <span id="window-label">以证据为准</span></p></div>
+          <label class="field-label" for="preset">任务起点</label>
+          <select id="preset"><option value="denominator_conflict">口径冲突 · B 默认返回全部运单</option><option value="missing_slice">数据缺片 · B 的华南证据缺失</option><option value="clean">干净数据 · 直接建立比较</option></select>
+          <button id="reset-task" class="button secondary full-width" type="button">开启 / 重置任务 <span aria-hidden="true">↗</span></button>
+          <p class="hint">重置会清空当前轨迹和结论。默认不授权缩小任务范围。</p>
+          <div class="target-divider"></div>
+          <div class="section-label"><h3>改变现场</h3><span>后端即时生效</span></div>
+          <div class="scenario-actions">
+            <button id="toggle-missing" class="scenario-button" type="button"><span class="scenario-symbol" aria-hidden="true">−</span><span><strong>移除 B · 华南</strong><small>让完整比较遇到证据缺口</small></span><span class="scenario-arrow" aria-hidden="true">↗</span></button>
+            <button id="toggle-archive" class="scenario-button" type="button"><span class="scenario-symbol" aria-hidden="true">≋</span><span><strong>关闭备选视图</strong><small>检验能否补证或请求授权</small></span><span class="scenario-arrow" aria-hidden="true">↗</span></button>
+            <button id="change-data" class="scenario-button" type="button"><span class="scenario-symbol" aria-hidden="true">↻</span><span><strong>导入数据更新</strong><small>检查旧证据与结论是否失效</small></span><span class="scenario-arrow" aria-hidden="true">↗</span></button>
+          </div>
+          <div id="scope-controls" class="scope-controls" hidden><button id="open-scope" type="button" class="button secondary full-width">开放仅华东的授权选项 <span aria-hidden="true">↗</span></button><p class="hint">先开放选项，再明确授权。原来的完整区域任务会保留为未完成。</p></div>
+          <div class="data-note"><span aria-hidden="true">◇</span><p>合成物流数据，真实执行链。<br>备选视图来自同一数据仓库。</p></div>
+        </div>
+      </section>
+
+      <section class="panel execution-panel" aria-labelledby="execution-heading">
+        <div class="panel-heading"><div><p class="panel-index">02 / EXECUTION</p><h2 id="execution-heading">调用与恢复</h2></div><span id="state-pill" class="status-pill neutral">等待连接</span></div>
+        <div class="execution-actions"><button id="step" type="button" class="button primary">执行下一步 <span aria-hidden="true">→</span></button><button id="auto-run" type="button" class="button quiet">自动运行 <span aria-hidden="true">↗</span></button><span id="run-status" class="run-status" role="status">按真实反馈推进</span></div>
+        <div id="feedback" class="feedback neutral" aria-live="polite" aria-atomic="false">
+          <div class="feedback-header"><span id="feedback-code" class="feedback-code">WAITING FOR BACKEND</span><span id="feedback-icon" aria-hidden="true">↗</span></div>
+          <h3 id="feedback-title">从一次真实的数据请求开始</h3><p id="feedback-message">连接后端后，平台会根据当前证据决定下一步。这里不播放预设流程。</p>
+          <div id="feedback-facts" class="feedback-facts"></div><div id="feedback-options" class="feedback-options"></div>
+        </div>
+        <div id="decision" class="decision" hidden><span class="decision-label" id="decision-label">规划依据</span><p id="decision-reason"></p><div class="decision-tool"><span id="decision-tool"></span><span id="decision-model"></span></div></div>
+        <div class="trace-section"><div class="section-label"><h3>执行轨迹 <span id="trace-count" class="count">—</span></h3><span>ACTOR → TOOL → RESULT</span></div><div id="trace" class="trace-list"><div class="empty-state"><span class="empty-icon" aria-hidden="true">↗</span><p>调用会留下证据。</p><small>每次请求的参数、结果与修复，均可展开核对。</small></div></div></div>
+        <div class="evidence-section"><div class="section-label"><h3>证据台账 <span id="evidence-count" class="count">—</span></h3><span id="evidence-version">SOURCE / VERSION</span></div><div id="evidence" class="evidence-list"><p class="empty-evidence">尚未获取数据证据</p></div></div>
+      </section>
+
+      <section class="panel conclusion-panel" aria-labelledby="conclusion-heading">
+        <div class="panel-heading"><div><p class="panel-index">03 / CLAIM</p><h2 id="conclusion-heading">目标与结论</h2></div><span class="tiny-label">有条件地成立</span></div>
+        <div class="conclusion-content">
+          <div class="weight-heading"><h3>声明目标构成</h3><span>共同区域权重</span></div>
+          <div class="weight-labels"><span>华东 <strong id="east-value">20<span>%</span></strong></span><span>华南 <strong id="south-value">80<span>%</span></strong></span></div>
+          <label class="sr-only" for="east-weight">目标业务构成中的华东权重，百分比</label><input id="east-weight" type="range" min="0" max="100" step="1" value="20" aria-valuetext="华东 20%，华南 80%">
+          <div class="weight-shortcuts" role="group" aria-label="快速声明目标权重"><button id="weight-20" class="weight-preset active" type="button" aria-pressed="true">华东 20%</button><button id="weight-80" class="weight-preset" type="button" aria-pressed="false">华东 80%</button></div>
+          <p id="weight-note" class="hint">修改的是任务目标；原始区域计数无需再次获取。</p><p id="reuse-note" class="reuse-note" hidden></p>
+          <div class="comparison" id="comparison"><div class="comparison-label"><span>共同构成下的超时率</span><span>越低越好</span></div><div class="rate-row carrier-a"><div><span class="carrier">A</span><strong id="rate-a">—</strong></div><div class="rate-track"><div id="rate-bar-a" class="rate-bar"></div></div></div><div class="rate-row carrier-b"><div><span class="carrier">B</span><strong id="rate-b">—</strong></div><div class="rate-track"><div id="rate-bar-b" class="rate-bar"></div></div></div><p id="comparison-reading">证据齐备后，由后端计算比较结果。</p><p id="comparison-coverage" class="comparison-coverage"></p></div>
+          <div id="claim-card" class="claim-card neutral"><div class="claim-label"><span>DATA USE CLAIM</span><strong id="claim-status">尚未生成</strong></div><h3 id="claim-summary">结论需要使用条件。</h3><div id="claim-conditions" class="claim-conditions"></div><p id="claim-unresolved" class="claim-unresolved">区域比较完成后，效果与成本问题仍需独立证据。</p><button id="finalize" class="button secondary full-width" type="button" disabled>定稿描述性结论 <span aria-hidden="true">↗</span></button></div>
+          <div class="causal-boundary"><span class="boundary-icon" aria-hidden="true">↗</span><div><strong>描述比较 ≠ 干预效果</strong><p>这里回答在指定构成下谁的超时率更低。更换承运商能否改善，仍需要因果与成本证据。</p></div></div>
+        </div>
+      </section>
+    </main>
+    <footer class="footer"><p><span class="footer-dot" aria-hidden="true"></span>让数据带着使用条件，交到 AI 手里。</p><div><span id="footer-status">本地后端 · 同源 API</span><a id="export" href="/api/export" download="semantica-workbench.json" aria-disabled="true">导出状态 / 轨迹 JSON <span aria-hidden="true">↓</span></a></div></footer>
+  </div>
+  <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
+  <noscript><p class="noscript">请启用 JavaScript，并启动 scripts/run_workbench.py。此工作台依赖本地后端执行真实请求。</p></noscript>
+</body>
+</html>

@@ -1,0 +1,275 @@
+{
+  "schema_version": "synthetic-agent-planner/v1",
+  "run_id": "1cea7f0cf2074f1997e81942ad89d7b4",
+  "created_at": "2026-10-12T18:50:43.561800+00:00",
+  "synthetic_observation": {
+    "allowed_regions": [
+      "华东",
+      "华南"
+    ],
+    "allowed_tools": [
+      "finalize_claim",
+      "request_clarification",
+      "stop"
+    ],
+    "available_actions": [
+      {
+        "arguments": {},
+        "label": "定稿描述性比较",
+        "tool": "finalize_claim"
+      },
+      {
+        "arguments": {},
+        "label": "请求用户处理缺证/范围",
+        "tool": "request_clarification"
+      },
+      {
+        "arguments": {},
+        "label": "停止当前任务",
+        "tool": "stop"
+      }
+    ],
+    "comparison": {
+      "better_carrier": "B",
+      "claim_id": null,
+      "coverage": 1.0,
+      "difference_pp": 2.8,
+      "evidence_refs": [
+        {
+          "carrier": "A",
+          "delayed": 18,
+          "denominator": 900,
+          "evidence_id": "E1",
+          "region": "华东"
+        },
+        {
+          "carrier": "A",
+          "delayed": 12,
+          "denominator": 100,
+          "evidence_id": "E1",
+          "region": "华南"
+        },
+        {
+          "carrier": "B",
+          "delayed": 4,
+          "denominator": 100,
+          "evidence_id": "E3",
+          "region": "华东"
+        },
+        {
+          "carrier": "B",
+          "delayed": 72,
+          "denominator": 900,
+          "evidence_id": "E3",
+          "region": "华南"
+        }
+      ],
+      "rates": {
+        "A": 0.1,
+        "B": 0.07200000000000001
+      },
+      "signature": "c6926d18b027404d",
+      "weights": {
+        "华东": 0.2,
+        "华南": 0.8
+      }
+    },
+    "evidence": [
+      {
+        "carrier": "A",
+        "id": "E1",
+        "revision": "03f268873e018484",
+        "rows": [
+          {
+            "delayed": 18,
+            "delivered": 900,
+            "rate": 0.02,
+            "region": "华东",
+            "total": null
+          },
+          {
+            "delayed": 12,
+            "delivered": 100,
+            "rate": 0.12,
+            "region": "华南",
+            "total": null
+          }
+        ],
+        "source": "primary",
+        "time_window": "2026-09-01 / 2026-10-01（发货时间，含始不含终）",
+        "valid": true,
+        "variant": "delivered_only"
+      },
+      {
+        "carrier": "B",
+        "id": "E2",
+        "revision": "03f268873e018484",
+        "rows": [
+          {
+            "delayed": 4,
+            "delivered": null,
+            "rate": 0.032,
+            "region": "华东",
+            "total": 125
+          },
+          {
+            "delayed": 72,
+            "delivered": null,
+            "rate": 0.07783783783783783,
+            "region": "华南",
+            "total": 925
+          }
+        ],
+        "source": "primary",
+        "time_window": "2026-09-01 / 2026-10-01（发货时间，含始不含终）",
+        "valid": true,
+        "variant": "all_shipments"
+      },
+      {
+        "carrier": "B",
+        "id": "E3",
+        "revision": "03f268873e018484",
+        "rows": [
+          {
+            "delayed": 4,
+            "delivered": 100,
+            "rate": 0.04,
+            "region": "华东",
+            "total": null
+          },
+          {
+            "delayed": 72,
+            "delivered": 900,
+            "rate": 0.08,
+            "region": "华南",
+            "total": null
+          }
+        ],
+        "source": "archive",
+        "time_window": "2026-09-01 / 2026-10-01（发货时间，含始不含终）",
+        "valid": true,
+        "variant": "delivered_only"
+      }
+    ],
+    "feedback": {
+      "code": "ready_to_finalize",
+      "conflicts": [],
+      "counterexamples": [],
+      "message": "同口径且覆盖充分，可以定稿当前条件下的描述性比较。",
+      "missing": [],
+      "options": [
+        {
+          "arguments": {},
+          "label": "定稿描述性比较",
+          "tool": "finalize_claim"
+        },
+        {
+          "arguments": {},
+          "label": "请求用户处理缺证/范围",
+          "tool": "request_clarification"
+        },
+        {
+          "arguments": {},
+          "label": "停止当前任务",
+          "tool": "stop"
+        }
+      ]
+    },
+    "history": [
+      {
+        "arguments": {
+          "carrier": "A",
+          "regions": [
+            "华东",
+            "华南"
+          ],
+          "source": "primary",
+          "variant": null
+        },
+        "result_status": "ok",
+        "summary": "E1 · A · delivered_only · 实际 SQL 返回 2 个区域，缺失 无",
+        "tool": "request_evidence"
+      },
+      {
+        "arguments": {
+          "carrier": "B",
+          "regions": [
+            "华东",
+            "华南"
+          ],
+          "source": "primary",
+          "variant": null
+        },
+        "result_status": "ok",
+        "summary": "E2 · B · all_shipments · 实际 SQL 返回 2 个区域，缺失 无",
+        "tool": "request_evidence"
+      },
+      {
+        "arguments": {
+          "carrier": "B",
+          "regions": [
+            "华东",
+            "华南"
+          ],
+          "source": "archive",
+          "variant": "delivered_only"
+        },
+        "result_status": "ok",
+        "summary": "E3 · B · delivered_only · 实际 SQL 返回 2 个区域，缺失 无",
+        "tool": "request_evidence"
+      },
+      {
+        "arguments": {},
+        "result_status": "ok",
+        "summary": "复用有效计数完成标准化比较；未重新读取 SQL。",
+        "tool": "derive_comparison"
+      }
+    ],
+    "provider": {
+      "archive_enabled": true,
+      "legacy_B_default": true,
+      "missing_B_south": false
+    },
+    "task": {
+      "allow_scope_change": false,
+      "east_weight": 0.2,
+      "goal": "按已妥投口径、同一发货时间窗比较 A/B；保留所有正权重区域，并说明换承运商能否改善。",
+      "id": "769598de0ac92583",
+      "require_full": true,
+      "required_variant": "delivered_only",
+      "time_window": "2026-09-01 / 2026-10-01（发货时间，含始不含终）",
+      "weights": {
+        "华东": 0.2,
+        "华南": 0.8
+      }
+    }
+  },
+  "actual_model": "deepseek/deepseek-flash",
+  "decision": {
+    "tool": "finalize_claim",
+    "arguments": {},
+    "reason": "同口径delivered_only、覆盖华东华南全正权重区域且证据一致有效，反馈为ready_to_finalize，可定稿描述性比较"
+  },
+  "raw_result": "{\"tool\":\"finalize_claim\",\"arguments\":{},\"reason\":\"同口径delivered_only、覆盖华东华南全正权重区域且证据一致有效，反馈为ready_to_finalize，可定稿描述性比较\"}",
+  "usage": {
+    "available": true,
+    "steps": [
+      {
+        "tokens": {
+          "total": 3066,
+          "input": 2864,
+          "output": 48,
+          "reasoning": 154,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "cost": 0,
+        "reason": "stop"
+      }
+    ]
+  },
+  "permission_denials_count": 0,
+  "ok": true
+}

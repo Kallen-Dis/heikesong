@@ -1,0 +1,253 @@
+{
+  "schema_version": "synthetic-agent-planner/v1",
+  "run_id": "698b8e2c42e04949b141fdaa55072681",
+  "created_at": "2026-10-12T18:50:35.935373+00:00",
+  "synthetic_observation": {
+    "allowed_regions": [
+      "华东",
+      "华南"
+    ],
+    "allowed_tools": [
+      "request_evidence",
+      "request_clarification",
+      "stop"
+    ],
+    "available_actions": [
+      {
+        "arguments": {
+          "carrier": "B",
+          "regions": [
+            "华东",
+            "华南"
+          ],
+          "source": "primary",
+          "variant": "delivered_only"
+        },
+        "label": "按已妥投重取 B",
+        "tool": "request_evidence"
+      },
+      {
+        "arguments": {
+          "carrier": "B",
+          "regions": [
+            "华东",
+            "华南"
+          ],
+          "source": "archive",
+          "variant": "delivered_only"
+        },
+        "label": "同仓备用视图补取 B",
+        "tool": "request_evidence"
+      },
+      {
+        "arguments": {},
+        "label": "请求用户处理缺证/范围",
+        "tool": "request_clarification"
+      },
+      {
+        "arguments": {},
+        "label": "停止当前任务",
+        "tool": "stop"
+      }
+    ],
+    "comparison": null,
+    "evidence": [
+      {
+        "carrier": "A",
+        "id": "E1",
+        "revision": "03f268873e018484",
+        "rows": [
+          {
+            "delayed": 18,
+            "delivered": 900,
+            "rate": 0.02,
+            "region": "华东",
+            "total": null
+          },
+          {
+            "delayed": 12,
+            "delivered": 100,
+            "rate": 0.12,
+            "region": "华南",
+            "total": null
+          }
+        ],
+        "source": "primary",
+        "time_window": "2026-09-01 / 2026-10-01（发货时间，含始不含终）",
+        "valid": true,
+        "variant": "delivered_only"
+      },
+      {
+        "carrier": "B",
+        "id": "E2",
+        "revision": "03f268873e018484",
+        "rows": [
+          {
+            "delayed": 4,
+            "delivered": null,
+            "rate": 0.032,
+            "region": "华东",
+            "total": 125
+          },
+          {
+            "delayed": 72,
+            "delivered": null,
+            "rate": 0.07783783783783783,
+            "region": "华南",
+            "total": 925
+          }
+        ],
+        "source": "primary",
+        "time_window": "2026-09-01 / 2026-10-01（发货时间，含始不含终）",
+        "valid": true,
+        "variant": "all_shipments"
+      }
+    ],
+    "feedback": {
+      "code": "denominator_conflict",
+      "conflicts": [
+        {
+          "actual": "all_shipments",
+          "carrier": "B",
+          "evidence_id": "E2",
+          "expected": "delivered_only",
+          "field": "denominator.variant",
+          "region": "华东"
+        },
+        {
+          "actual": "all_shipments",
+          "carrier": "B",
+          "evidence_id": "E2",
+          "expected": "delivered_only",
+          "field": "denominator.variant",
+          "region": "华南"
+        }
+      ],
+      "counterexamples": [],
+      "message": "B 的产品默认分母含在途，任务要求已妥投；需要按字段冲突重新取证。",
+      "missing": [],
+      "options": [
+        {
+          "arguments": {
+            "carrier": "B",
+            "regions": [
+              "华东",
+              "华南"
+            ],
+            "source": "primary",
+            "variant": "delivered_only"
+          },
+          "label": "按已妥投重取 B",
+          "tool": "request_evidence"
+        },
+        {
+          "arguments": {
+            "carrier": "B",
+            "regions": [
+              "华东",
+              "华南"
+            ],
+            "source": "archive",
+            "variant": "delivered_only"
+          },
+          "label": "同仓备用视图补取 B",
+          "tool": "request_evidence"
+        },
+        {
+          "arguments": {},
+          "label": "请求用户处理缺证/范围",
+          "tool": "request_clarification"
+        },
+        {
+          "arguments": {},
+          "label": "停止当前任务",
+          "tool": "stop"
+        }
+      ]
+    },
+    "history": [
+      {
+        "arguments": {
+          "carrier": "A",
+          "regions": [
+            "华东",
+            "华南"
+          ],
+          "source": "primary",
+          "variant": null
+        },
+        "result_status": "ok",
+        "summary": "E1 · A · delivered_only · 实际 SQL 返回 2 个区域，缺失 无",
+        "tool": "request_evidence"
+      },
+      {
+        "arguments": {
+          "carrier": "B",
+          "regions": [
+            "华东",
+            "华南"
+          ],
+          "source": "primary",
+          "variant": null
+        },
+        "result_status": "ok",
+        "summary": "E2 · B · all_shipments · 实际 SQL 返回 2 个区域，缺失 无",
+        "tool": "request_evidence"
+      }
+    ],
+    "provider": {
+      "archive_enabled": true,
+      "legacy_B_default": true,
+      "missing_B_south": false
+    },
+    "task": {
+      "allow_scope_change": false,
+      "east_weight": 0.2,
+      "goal": "按已妥投口径、同一发货时间窗比较 A/B；保留所有正权重区域，并说明换承运商能否改善。",
+      "id": "769598de0ac92583",
+      "require_full": true,
+      "required_variant": "delivered_only",
+      "time_window": "2026-09-01 / 2026-10-01（发货时间，含始不含终）",
+      "weights": {
+        "华东": 0.2,
+        "华南": 0.8
+      }
+    }
+  },
+  "actual_model": "deepseek/deepseek-flash",
+  "decision": {
+    "tool": "request_evidence",
+    "arguments": {
+      "carrier": "B",
+      "regions": [
+        "华东",
+        "华南"
+      ],
+      "source": "archive",
+      "variant": "delivered_only"
+    },
+    "reason": "反馈为 B 分母口径冲突（E2 实为 all_shipments），且 legacy_B_default=true 使主视图仍会返回全量口径，重取主视图无法修复；archive_enabled=true，故按同口径 delivered_only 从备用视图补取 B，覆盖华东、华南全部正权重区域，不缩范围、不改口径。"
+  },
+  "raw_result": "{\"tool\":\"request_evidence\",\"arguments\":{\"carrier\":\"B\",\"regions\":[\"华东\",\"华南\"],\"source\":\"archive\",\"variant\":\"delivered_only\"},\"reason\":\"反馈为 B 分母口径冲突（E2 实为 all_shipments），且 legacy_B_default=true 使主视图仍会返回全量口径，重取主视图无法修复；archive_enabled=true，故按同口径 delivered_only 从备用视图补取 B，覆盖华东、华南全部正权重区域，不缩范围、不改口径。\"}",
+  "usage": {
+    "available": true,
+    "steps": [
+      {
+        "tokens": {
+          "total": 4215,
+          "input": 2627,
+          "output": 114,
+          "reasoning": 1474,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "cost": 0,
+        "reason": "stop"
+      }
+    ]
+  },
+  "permission_denials_count": 0,
+  "ok": true
+}
