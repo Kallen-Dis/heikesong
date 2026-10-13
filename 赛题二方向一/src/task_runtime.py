@@ -10,7 +10,8 @@ import hashlib
 import copy
 import json
 import math
-from datetime import datetime, timedelta
+from datetime import datetime
+from pathlib import Path
 from threading import RLock
 
 import duckdb
@@ -18,6 +19,8 @@ import pandas as pd
 
 from .alignment import Alignment, TimeRange
 from .compiler import Compiler
+from .db import DB_PATH
+from .scenario_fixture import materialize
 
 
 REGIONS = ("华东", "华南")
@@ -29,29 +32,16 @@ def digest(value):
 
 
 class TaskRuntime:
-    def __init__(self):
+    def __init__(self, db_path: Path | str | None = None) -> None:
         self.lock = RLock()
         self.conn = duckdb.connect(":memory:")
+        self.db_path = Path(db_path) if db_path else DB_PATH
+        self.scenario_source = "builtin"
         self.reset()
 
     def _fixture(self):
-        self.conn.execute("CREATE OR REPLACE TABLE customers(customer_id INTEGER, customer_name VARCHAR, region VARCHAR)")
-        self.conn.execute("INSERT INTO customers VALUES (1,'合成客户东','华东'),(2,'合成客户南','华南')")
-        self.conn.execute("CREATE OR REPLACE TABLE carriers(carrier_id INTEGER, carrier_name VARCHAR)")
-        self.conn.execute("INSERT INTO carriers VALUES (1,'A'),(2,'B')")
-        self.conn.execute("CREATE OR REPLACE TABLE orders(order_id INTEGER, customer_id INTEGER, order_time TIMESTAMP)")
-        self.conn.execute("CREATE OR REPLACE TABLE shipments(shipment_id INTEGER, order_id INTEGER, carrier_id INTEGER, ship_time TIMESTAMP, delivery_time TIMESTAMP, promised_time TIMESTAMP)")
-        orders, shipments, idx = [], [], 0
-        start = datetime(2026, 9, 1, 8)
-        for carrier, customer, completed, late in ((1, 1, 900, 18), (1, 2, 100, 12),
-                                                   (2, 1, 100, 4), (2, 2, 900, 72)):
-            for n in range(completed + 25):
-                idx += 1
-                orders.append((idx, customer, start))
-                delivery = None if n >= completed else start + timedelta(hours=36 if n < late else 12)
-                shipments.append((idx, idx, carrier, start, delivery, start + timedelta(hours=24)))
-        self.conn.executemany("INSERT INTO orders VALUES (?,?,?)", orders)
-        self.conn.executemany("INSERT INTO shipments VALUES (?,?,?,?,?,?)", shipments)
+        """刷新场景工作副本：来自主仓库 demo schema，缺失时用内置定义。"""
+        self.scenario_source = materialize(self.conn, self.db_path)
         base = {"zh": "计数", "table": "shipments", "time_basis": "s.ship_time",
                 "default_variant": "count"}
         self.compiler = Compiler({key: {**base, "variants": [{"id": "count", "zh": key, "expr": expr}]}
@@ -369,6 +359,7 @@ class TaskRuntime:
             state = ("needs_clarification" if self.paused else "needs_repair" if feedback["conflicts"] else
                      "needs_evidence" if feedback["missing"] else "finalized" if self.claim and self.claim["valid"] else "ready")
             return json.loads(json.dumps({"schema_version": "task-recovery/v1", "synthetic": True, "task": self.task,
+                "scenario_source": self.scenario_source,
                 "state": state, "evidence": self.evidence, "feedback": feedback, "comparison": self.comparison,
                 "claim": self.claim, "trace": self.trace, "metrics": self.metrics, "last_decision": self.last_decision,
                 "provider": self.provider}, ensure_ascii=False, default=str))

@@ -41,6 +41,7 @@
 cd 赛题二方向一
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
+.\.venv\Scripts\python.exe data/generate_data.py       # 生成数仓，含工作台场景表
 .\.venv\Scripts\python.exe scripts/run_workbench.py
 ```
 

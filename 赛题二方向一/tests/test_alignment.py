@@ -175,6 +175,23 @@ class TestUnsupported:
         assert a.unsupported and "未指定指标" in a.unsupported
 
 
+class TestComparisonGuard:
+    """含「比」但不是比较问句的说法（「占比/比例是多少」）不能被判为不支持。"""
+
+    @pytest.mark.parametrize("question,expected", [
+        ("8月的华东区订单占比是多少？", "EastChinaOrderRatio"),
+        ("8月的超时比例是多少？", "DelayRate"),
+    ])
+    def test_ratio_phrasing_is_not_treated_as_comparison(self, aligner, question, expected):
+        a = aligner.align(question)
+        assert a.metric_id == expected
+        assert a.unsupported is None
+
+    def test_real_comparison_is_still_declined(self, aligner):
+        a = aligner.align("8月华东的订单量比华南高多少？")
+        assert a.unsupported and "不支持增长、环比或同比" in a.unsupported
+
+
 class TestProfiles:
     def test_no_synonyms_profile_loses_colloquial_terms(self, conn):
         full = Aligner(conn, profile="full")

@@ -56,15 +56,17 @@ AI选择下一项工具 → 查询引擎执行 → 生成证据
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
+.\.venv\Scripts\python.exe data/generate_data.py       # 生成数仓，含工作台场景表
 .\.venv\Scripts\python.exe scripts/run_workbench.py
 ```
 
 访问 [http://127.0.0.1:8766](http://127.0.0.1:8766)。协议演示无需语言模型服务。真实模型模式依赖本机模型桥接；工作台提供保存的真实执行记录供核对，配置与展示方式见导读。
 
+工作台只读连接 `data/warehouse.duckdb`，把 `demo` schema 里的场景表复制成内存工作副本；若该文件缺失，会按内置定义生成场景，工作台仍可启动（状态中会标明数据来源）。
+
 若希望进一步体验底层语义查询、契约预览及证据重放，在同一环境运行：
 
 ```powershell
-.\.venv\Scripts\python.exe data/generate_data.py
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 

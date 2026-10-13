@@ -14,8 +14,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from src import enable_utf8  # noqa: E402
+
+enable_utf8()
+
+from mcp import ClientSession, StdioServerParameters  # noqa: E402
+from mcp.client.stdio import stdio_client  # noqa: E402
 
 
 def _text(result) -> str:

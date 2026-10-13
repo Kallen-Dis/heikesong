@@ -20,6 +20,10 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+# 中文 Windows 控制台默认 GBK，输出 ✅ 会 UnicodeEncodeError 并让脚本以非零码退出。
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 import matplotlib
 
 matplotlib.use("Agg")

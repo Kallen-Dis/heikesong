@@ -27,6 +27,10 @@ from .db import ONTOLOGY_DIR, dataset_end
 
 REGIONS = ["华东", "华南", "华北", "华中", "西南", "西北", "东北"]
 
+# 含「比」但不是比较问句的词：「占比是多少」「分别是多少」「比如…多少」会被
+# 比较问句正则误伤，判定前先剥离。
+NON_COMPARISON_BI_WORDS = ("百分比", "占比", "比例", "比率", "比重", "分别", "比如", "比方", "比喻")
+
 # 陷阱题术语 → "数据不足"话术（平台刻意不猜测）
 UNSUPPORTED_MESSAGES = {
     "退货率": "数据不足：数据仓库中不存在退货/退款表，无法计算退货率。建议补充退货数据源，或改问「妥投率」「履约超时率」。",
@@ -277,8 +281,11 @@ class Aligner:
         if named_brand and not any(named_brand.group(1).endswith(b) for b in self.brands) \
                 and not named_brand.group(1).endswith(("哪个", "什么", "各", "所有", "的")):
             return "指定品牌不在当前数据值词表中，不能忽略品牌条件后返回全量。"
-        if any(w in q for w in ("增长", "环比", "同比", "相比", "相较")) \
-                or re.search(r"比.+(?:高|低|多|少|变化|差)", q):
+        probe = q
+        for word in NON_COMPARISON_BI_WORDS:
+            probe = probe.replace(word, "")
+        if any(w in probe for w in ("增长", "环比", "同比", "相比", "相较")) \
+                or re.search(r"比.+(?:高|低|多|少|变化|差)", probe):
             if a.metric_id is None:
                 return "未指定指标：请说明比较的指标；当前引擎尚不支持增长、环比或同比计算。"
             return "当前引擎尚不支持增长、环比或同比计算，请分别查询两个明确时间窗口。"

@@ -15,11 +15,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import duckdb
 import numpy as np
 import pandas as pd
+
+# 中文 Windows 控制台默认 GBK，输出 ✅ 会 UnicodeEncodeError 并让脚本以非零码退出。
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -232,6 +237,13 @@ def generate(end_date: str, seed: int, out_path: Path) -> dict:
     for t in ["orders", "shipments", "products", "customers", "carriers"]:
         stats["tables"][t] = int(con.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0])
 
+    # ---- 任务恢复工作台的场景表（同一仓库的 demo schema，供工作台只读取材）
+    sys.path.insert(0, str(ROOT))
+    from src.scenario_fixture import install as install_scenario  # noqa: E402
+    install_scenario(con)
+    stats["scenario"] = {name: int(con.execute(f"SELECT COUNT(*) FROM demo.{name}").fetchone()[0])
+                         for name in ("customers", "carriers", "orders", "shipments")}
+
     gmv = con.execute(
         "SELECT SUM(order_amount), SUM(pay_amount), "
         "SUM(pay_amount) FILTER (WHERE status <> '已取消') FROM orders").fetchone()
@@ -268,6 +280,8 @@ def main() -> None:
     for k, v in stats["key_aggregates"].items():
         if isinstance(v, float):
             print(f"   {k:<24} {v:,.6f}")
+    print("   任务恢复场景表（demo schema）:",
+          "、".join(f"{k} {v:,}" for k, v in stats.get("scenario", {}).items()))
     print("   （相对时间基准 =", stats["generated_for_end_date"], "）")
 
 

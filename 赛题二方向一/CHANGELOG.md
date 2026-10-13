@@ -1,5 +1,13 @@
 # 语枢 Semantica · 变更日志
 
+## 2026-10-13 · v0.2.1 · 修复（当前）
+
+- **比较问句守卫误伤**：`_unsupported_composition` 的正则 `比.+(?:高|低|多|少|变化|差)` 把「…占比是多少？」「…比例是多少？」判成增长/环比，导致本体中已教学的 `华东区订单占比` 等指标查不出来。现先剥离「占比/比例/百分比/比率/比重/分别/比如/比方/比喻」再判定。
+  回归：新增 `tests/test_alignment.py::TestComparisonGuard`；继承自 main 的 `tests/test_cache_feedback.py::test_realigned_question_after_reload_uses_new_metric` 由失败转为通过。
+- **中文 Windows 控制台编码崩溃**：脚本打印 ✅ 时按 GBK 编码抛 `UnicodeEncodeError` 并以非零码退出（数据其实已生成，用户只看到 traceback）。导入 `src` 即把标准输出切到 UTF-8；不依赖 `src` 的独立脚本（`data/generate_data.py`、`scripts/make_charts.py`）就地处理。
+- **工作台与语义层统一到同一个仓库**：场景表改由 `data/generate_data.py` 写进 `warehouse.duckdb` 的 `demo` schema，工作台只读 ATTACH 该文件再复制成内存工作副本（来源标记写入状态，缺文件时回退内置定义）。原来工作台是独立的 `:memory:` 账本，主演示与语义层的数据来源对不上。场景表在独立 schema，不进入题库与裸 DDL 提示词。顺带把场景表写入从逐行自动提交改为单事务（13.7s → 0.5s）。
+- **当前实测基线**：`python -m pytest` → **302 passed**。下方 2026-10-08 段落中的「161 项 pytest」「AmbiQuery 120/120」是该次自建回归的历史记录，两者不同规模，不可拼成一个总正确率。
+
 ## 2026-10-13 · v0.2 · 赛题2-庄子由
 
 定位升级为 Agent 语义执行网关：语义契约预览/执行、完整证据与重放、关联质量阻断、承运商条件决策、区域构成反转演示及可选 LLM 规划。参赛材料见 `参赛材料/`。

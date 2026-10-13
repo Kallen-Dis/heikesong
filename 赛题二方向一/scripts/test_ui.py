@@ -15,7 +15,11 @@ os.environ["SEMANTICA_UI_TEST"] = "1"
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from streamlit.testing.v1 import AppTest
+from src import enable_utf8  # noqa: E402
+
+enable_utf8()
+
+from streamlit.testing.v1 import AppTest  # noqa: E402
 
 
 def main() -> None:
